@@ -1,30 +1,41 @@
 import { useEffect, useState } from "react"
 import axios from "axios"
+
 import Loading from "./Loading"
 import Empty from "./Empty"
 import Error from "./Error"
 
-const API = "https://hrms-lite-ethara.onrender.com/"
+
+// 🔥 IMPORTANT → replace with your Render backend URL
+const API = "https://YOUR-BACKEND.onrender.com"
+
 
 export default function App() {
 
   const [employees, setEmployees] = useState([])
   const [attendance, setAttendance] = useState({})
   const [stats, setStats] = useState({})
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+
   const [filterDate, setFilterDate] = useState("")
 
-  const today = new Date().toLocaleDateString('en-CA')
-
   const [form, setForm] = useState({
-    emp_id: "", name: "", email: "", department: ""
+    emp_id: "",
+    name: "",
+    email: "",
+    department: ""
   })
 
 
-  // -----------------------
-  // Load
-  // -----------------------
+  // ✅ FIXED timezone bug (local date)
+  const today = new Date().toLocaleDateString("en-CA")
+
+
+  // =========================
+  // Load Employees
+  // =========================
 
   const loadEmployees = async () => {
     try {
@@ -39,39 +50,69 @@ export default function App() {
       res.data.forEach(e => loadAttendance(e.id))
 
       setError(null)
-    }
-    catch {
-      setError("Backend server not reachable")
+
+    } catch {
+      setError("Backend server not reachable. Please try again.")
     }
     finally {
       setLoading(false)
     }
   }
 
+
   const loadAttendance = async (id) => {
+
     const url = filterDate
       ? `${API}/attendance/${id}?date=${filterDate}`
       : `${API}/attendance/${id}`
 
     const res = await axios.get(url)
 
-    setAttendance(prev => ({ ...prev, [id]: res.data }))
+    setAttendance(prev => ({
+      ...prev,
+      [id]: res.data
+    }))
   }
+
 
   useEffect(() => {
     loadEmployees()
   }, [filterDate])
 
 
-  // -----------------------
-  // Actions
-  // -----------------------
+  // =========================
+  // Add Employee
+  // =========================
 
   const addEmployee = async () => {
-    await axios.post(`${API}/employees`, form)
-    setForm({ emp_id:"", name:"", email:"", department:"" })
-    loadEmployees()
+    try {
+
+      await axios.post(`${API}/employees`, form)
+
+      setForm({
+        emp_id: "",
+        name: "",
+        email: "",
+        department: ""
+      })
+
+      loadEmployees()
+
+    } catch (err) {
+
+      // ⭐ SHOW BACKEND VALIDATION ERRORS
+      const msg =
+        err.response?.data?.error ||
+        "Something went wrong"
+
+      alert(msg)
+    }
   }
+
+
+  // =========================
+  // Attendance
+  // =========================
 
   const markAttendance = async (id, status) => {
     await axios.post(`${API}/attendance`, {
@@ -79,8 +120,10 @@ export default function App() {
       date: today,
       status
     })
+
     loadEmployees()
   }
+
 
   const deleteEmployee = async (id) => {
     await axios.delete(`${API}/employees/${id}`)
@@ -88,66 +131,115 @@ export default function App() {
   }
 
 
-  // -----------------------
-  // UI states
-  // -----------------------
+  // =========================
+  // UI STATES
+  // =========================
 
   if (loading) return <Loading />
   if (error) return <Error message={error} />
 
 
-  return (
-    <div className="container my-5" style={{maxWidth:"900px"}}>
+  // =========================
+  // UI
+  // =========================
 
-      <h2 className="text-center mb-4">HRMS Lite – Admin Panel</h2>
+  return (
+    <div className="container my-5" style={{ maxWidth: 900 }}>
+
+      <h2 className="text-center mb-4">
+        HRMS Lite – Admin Panel
+      </h2>
+
 
       {/* Dashboard */}
-      <div className="row mb-4">
+      <div className="row text-center mb-4">
         <div className="col">Employees: {stats.totalEmployees}</div>
         <div className="col text-success">Present: {stats.present}</div>
         <div className="col text-danger">Absent: {stats.absent}</div>
       </div>
 
-      {/* Filter */}
+
+      {/* Date Filter */}
       <input
         type="date"
-        className="form-control mb-3"
+        className="form-control mb-4"
         value={filterDate}
         onChange={e => setFilterDate(e.target.value)}
       />
 
-      {/* Add */}
-      <div className="mb-4">
-        {Object.keys(form).map(k =>
-          <input key={k} placeholder={k}
+
+      {/* Add Form */}
+      <div className="card p-3 mb-4">
+
+        <h5>Add Employee</h5>
+
+        {Object.keys(form).map(k => (
+          <input
+            key={k}
             className="form-control mb-2"
+            placeholder={k}
             value={form[k]}
-            onChange={e => setForm({...form,[k]:e.target.value})}
+            onChange={e => setForm({
+              ...form,
+              [k]: e.target.value
+            })}
           />
-        )}
-        <button className="btn btn-primary w-100" onClick={addEmployee}>Add</button>
+        ))}
+
+        <button
+          className="btn btn-primary"
+          onClick={addEmployee}
+        >
+          Add Employee
+        </button>
       </div>
+
 
       {employees.length === 0 && <Empty />}
 
+
+      {/* Employee Cards */}
       {employees.map(e => (
+
         <div key={e.id} className="card p-3 mb-3">
 
-          <b>{e.name} ({e.emp_id})</b>
+          <h5>{e.name} ({e.emp_id})</h5>
           <small className="text-muted">{e.department}</small>
+
           <div>Present Days: {e.present_days}</div>
 
           <div className="mt-2">
-            <button onClick={()=>markAttendance(e.id,"Present")} className="btn btn-success btn-sm me-2">Present</button>
-            <button onClick={()=>markAttendance(e.id,"Absent")} className="btn btn-warning btn-sm me-2">Absent</button>
-            <button onClick={()=>deleteEmployee(e.id)} className="btn btn-danger btn-sm">Delete</button>
+            <button
+              className="btn btn-success btn-sm me-2"
+              onClick={() => markAttendance(e.id, "Present")}
+            >
+              Present
+            </button>
+
+            <button
+              className="btn btn-warning btn-sm me-2"
+              onClick={() => markAttendance(e.id, "Absent")}
+            >
+              Absent
+            </button>
+
+            <button
+              className="btn btn-danger btn-sm"
+              onClick={() => deleteEmployee(e.id)}
+            >
+              Delete
+            </button>
           </div>
 
+
           <ul className="mt-2">
-            {attendance[e.id]?.map((a,i)=>(
-              <li key={i}>{a.date} - {a.status}</li>
+            {attendance[e.id]?.map((a, i) => (
+              <li key={i}>
+                {a.date} – {a.status}
+              </li>
             ))}
           </ul>
+
         </div>
       ))}
 
