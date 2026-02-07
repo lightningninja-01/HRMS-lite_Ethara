@@ -4,7 +4,7 @@ import Loading from "./Loading"
 import Empty from "./Empty"
 import Error from "./Error"
 
-const API = "http://127.0.0.1:5000"
+const API = "https://hrms-lite-ethara.onrender.com/"
 
 export default function App() {
 
