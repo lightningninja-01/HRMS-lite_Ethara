@@ -68,24 +68,45 @@ export default function App() {
   // -----------------------
 
   const addEmployee = async () => {
+  try {
     await axios.post(`${API}/employees`, form)
+
     setForm({ emp_id:"", name:"", email:"", department:"" })
     loadEmployees()
+
+  } catch (err) {
+    const msg =
+      err.response?.data?.error ||
+      "Something went wrong"
+
+    alert(msg)
   }
+}
+
 
   const markAttendance = async (id, status) => {
+  try {
     await axios.post(`${API}/attendance`, {
       employee_id: id,
       date: today,
       status
     })
     loadEmployees()
+  } catch {
+    alert("Failed to mark attendance")
   }
+}
 
-  const deleteEmployee = async (id) => {
+
+ const deleteEmployee = async (id) => {
+  try {
     await axios.delete(`${API}/employees/${id}`)
     loadEmployees()
+  } catch {
+    alert("Failed to delete employee")
   }
+}
+
 
 
   // -----------------------
