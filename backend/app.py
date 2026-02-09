@@ -23,12 +23,24 @@ class Employee(db.Model):
     email = db.Column(db.String(100), nullable=False)
     department = db.Column(db.String(100), nullable=False)
 
+    # ✅ auto delete attendance when employee deleted
+    attendance = db.relationship(
+        "Attendance",
+        backref="employee",
+        cascade="all, delete-orphan"
+    )
+
 
 class Attendance(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.String(20))
-    status = db.Column(db.String(20))
+    date = db.Column(db.String(20), nullable=False)
+    status = db.Column(db.String(20), nullable=False)
     employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'))
+
+    # ✅ only ONE per day
+    __table_args__ = (
+        db.UniqueConstraint('employee_id', 'date'),
+    )
 
 
 # ======================
@@ -80,7 +92,7 @@ def get_employees():
             "present_days": present_days
         })
 
-    return jsonify(result), 200
+    return jsonify(result)
 
 
 @app.route("/employees", methods=["POST"])
@@ -116,30 +128,43 @@ def add_employee():
 
 @app.route("/employees/<int:id>", methods=["DELETE"])
 def delete_employee(id):
-    emp = Employee.query.get(id)
+    emp = Employee.query.get_or_404(id)
 
-    if not emp:
-        return jsonify({"error": "Employee not found"}), 404
-
-    db.session.delete(emp)
+    db.session.delete(emp)  # cascade deletes attendance
     db.session.commit()
-    return jsonify({"message": "Deleted"}), 200
+
+    return jsonify({"message": "Deleted"})
 
 
 # ======================
-# Attendance
+# Attendance (update logic)
 # ======================
 
 @app.route("/attendance", methods=["POST"])
 def mark_attendance():
-    data = request.json
-    att = Attendance(**data)
-    db.session.add(att)
+
+    data = request.json or {}
+
+    emp_id = data.get("employee_id")
+    date = data.get("date")
+    status = data.get("status")
+
+    record = Attendance.query.filter_by(
+        employee_id=emp_id,
+        date=date
+    ).first()
+
+    if record:
+        record.status = status
+    else:
+        record = Attendance(**data)
+        db.session.add(record)
+
     db.session.commit()
-    return jsonify({"message": "Attendance marked"}), 201
+
+    return jsonify({"message": "Saved"})
 
 
-# ⭐ FILTER SUPPORT ADDED HERE
 @app.route("/attendance/<int:emp_id>")
 def get_attendance(emp_id):
     date = request.args.get("date")
@@ -151,15 +176,8 @@ def get_attendance(emp_id):
 
     records = query.all()
 
-    return jsonify([
-        {"date": r.date, "status": r.status}
-        for r in records
-    ])
+    return jsonify([{"date": r.date, "status": r.status} for r in records])
 
-
-# ======================
-# Dashboard
-# ======================
 
 @app.route("/dashboard")
 def dashboard():
@@ -170,10 +188,7 @@ def dashboard():
     })
 
 
-# ======================
-
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-
     app.run(debug=True)

@@ -4,7 +4,7 @@ import Loading from "./Loading"
 import Empty from "./Empty"
 import Error from "./Error"
 
-const API = "https://hrms-lite-ethara.onrender.com/"
+const API = "https://hrms-lite-ethara.onrender.com"
 
 export default function App() {
 
@@ -14,17 +14,14 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [filterDate, setFilterDate] = useState("")
+  const [selectedDate, setSelectedDate] = useState({})
 
-  const today = new Date().toLocaleDateString('en-CA')
+  const today = new Date().toLocaleDateString("en-CA")
 
   const [form, setForm] = useState({
     emp_id: "", name: "", email: "", department: ""
   })
 
-
-  // -----------------------
-  // Load
-  // -----------------------
 
   const loadEmployees = async () => {
     try {
@@ -63,55 +60,36 @@ export default function App() {
   }, [filterDate])
 
 
-  // -----------------------
-  // Actions
-  // -----------------------
-
   const addEmployee = async () => {
-  try {
-    await axios.post(`${API}/employees`, form)
-
-    setForm({ emp_id:"", name:"", email:"", department:"" })
-    loadEmployees()
-
-  } catch (err) {
-    const msg =
-      err.response?.data?.error ||
-      "Something went wrong"
-
-    alert(msg)
+    try {
+      await axios.post(`${API}/employees`, form)
+      setForm({ emp_id:"", name:"", email:"", department:"" })
+      loadEmployees()
+    } catch (err) {
+      alert(err.response?.data?.error || "Error")
+    }
   }
-}
 
 
   const markAttendance = async (id, status) => {
-  try {
-    await axios.post(`${API}/attendance`, {
-      employee_id: id,
-      date: today,
-      status
-    })
-    loadEmployees()
-  } catch {
-    alert("Failed to mark attendance")
+    try {
+      await axios.post(`${API}/attendance`, {
+        employee_id: id,
+        date: selectedDate[id] || today,   // ⭐ chosen date
+        status
+      })
+      loadEmployees()
+    } catch {
+      alert("Failed")
+    }
   }
-}
 
 
- const deleteEmployee = async (id) => {
-  try {
+  const deleteEmployee = async (id) => {
     await axios.delete(`${API}/employees/${id}`)
     loadEmployees()
-  } catch {
-    alert("Failed to delete employee")
   }
-}
 
-
-
-  // -----------------------
-  // UI states
-  // -----------------------
 
   if (loading) return <Loading />
   if (error) return <Error message={error} />
@@ -122,14 +100,13 @@ export default function App() {
 
       <h2 className="text-center mb-4">HRMS Lite – Admin Panel</h2>
 
-      {/* Dashboard */}
       <div className="row mb-4">
         <div className="col">Employees: {stats.totalEmployees}</div>
         <div className="col text-success">Present: {stats.present}</div>
         <div className="col text-danger">Absent: {stats.absent}</div>
       </div>
 
-      {/* Filter */}
+
       <input
         type="date"
         className="form-control mb-3"
@@ -137,7 +114,7 @@ export default function App() {
         onChange={e => setFilterDate(e.target.value)}
       />
 
-      {/* Add */}
+
       <div className="mb-4">
         {Object.keys(form).map(k =>
           <input key={k} placeholder={k}
@@ -149,7 +126,9 @@ export default function App() {
         <button className="btn btn-primary w-100" onClick={addEmployee}>Add</button>
       </div>
 
+
       {employees.length === 0 && <Empty />}
+
 
       {employees.map(e => (
         <div key={e.id} className="card p-3 mb-3">
@@ -158,7 +137,21 @@ export default function App() {
           <small className="text-muted">{e.department}</small>
           <div>Present Days: {e.present_days}</div>
 
-          <div className="mt-2">
+          {/* ⭐ NEW date picker */}
+          <input
+            type="date"
+            max={today}    // ⭐ disables future dates
+            className="form-control mb-2"
+            value={selectedDate[e.id] || today}
+            onChange={(ev) =>
+              setSelectedDate({
+                ...selectedDate,
+                [e.id]: ev.target.value
+              })
+            }
+          />
+
+          <div>
             <button onClick={()=>markAttendance(e.id,"Present")} className="btn btn-success btn-sm me-2">Present</button>
             <button onClick={()=>markAttendance(e.id,"Absent")} className="btn btn-warning btn-sm me-2">Absent</button>
             <button onClick={()=>deleteEmployee(e.id)} className="btn btn-danger btn-sm">Delete</button>
